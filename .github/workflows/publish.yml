@@ -14,7 +14,7 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       scope: ${{ steps.v.outputs.scope }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
       - name: Fetch biome and compute version
@@ -70,7 +70,7 @@ jobs:
       BIOME_VERSION: ${{ needs.version.outputs.version }}
       RUSTFLAGS: "-C strip=symbols -C codegen-units=1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -108,7 +108,7 @@ jobs:
           dst="biome-${{ matrix.code-target }}${ext}"
           cp "${src}" "${dst}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: biome-${{ matrix.code-target }}
           path: biome-${{ matrix.code-target }}*
@@ -122,7 +122,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -130,13 +130,13 @@ jobs:
         run: ./build.sh
 
       - name: Download built binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: biome-*
           path: biome
           merge-multiple: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "20"
           registry-url: "https://npm.pkg.github.com"
