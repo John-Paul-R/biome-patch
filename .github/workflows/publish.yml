@@ -1,0 +1,142 @@
+name: Publish biome to GitHub Packages
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: Compute version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      scope: ${{ steps.v.outputs.scope }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch biome and compute version
+        id: v
+        shell: bash
+        run: |
+          ./build.sh
+          upstream="$(node -p "require('./biome/packages/@biomejs/biome/package.json').version")"
+          short="${GITHUB_SHA:0:7}"
+          version="${upstream}-patch.${short}"
+          owner="${GITHUB_REPOSITORY_OWNER}"
+          scope="$(echo "${owner}" | tr '[:upper:]' '[:lower:]')"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "scope=${scope}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${version}"
+          echo "Scope:   @${scope}"
+
+  build:
+    name: Build ${{ matrix.code-target }}
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - code-target: linux-x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - code-target: linux-arm64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - code-target: linux-x64-musl
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - code-target: linux-arm64-musl
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+          - code-target: darwin-x64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+          - code-target: darwin-arm64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+          - code-target: win32-x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: .exe
+          - code-target: win32-arm64
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            ext: .exe
+    runs-on: ${{ matrix.runner }}
+    env:
+      BIOME_VERSION: ${{ needs.version.outputs.version }}
+      RUSTFLAGS: "-C strip=symbols -C codegen-units=1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust target
+        shell: bash
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install musl tools
+        if: contains(matrix.code-target, 'musl')
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Fetch and patch biome
+        shell: bash
+        run: ./build.sh
+
+      - name: Set jemalloc page size (linux-arm64)
+        if: matrix.code-target == 'linux-arm64'
+        shell: bash
+        run: echo "JEMALLOC_SYS_WITH_LG_PAGE=16" >> $GITHUB_ENV
+
+      - name: Build biome CLI
+        shell: bash
+        working-directory: biome
+        run: cargo build -p biome_cli --release --target ${{ matrix.target }}
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          ext="${{ matrix.ext }}"
+          src="biome/target/${{ matrix.target }}/release/biome${ext}"
+          dst="biome-${{ matrix.code-target }}${ext}"
+          cp "${src}" "${dst}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: biome-${{ matrix.code-target }}
+          path: biome-${{ matrix.code-target }}*
+          if-no-files-found: error
+
+  publish:
+    name: Publish to GitHub Packages
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch and patch biome
+        run: ./build.sh
+
+      - name: Download built binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: biome-*
+          path: biome
+          merge-multiple: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://npm.pkg.github.com"
+
+      - name: Publish packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCOPE: ${{ needs.version.outputs.scope }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: node scripts/publish.mjs
