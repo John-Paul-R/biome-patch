@@ -1,0 +1,25 @@
+name: Patch biome
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Run patch script
+        run: ./build.sh
+
+      - name: Upload patched source
+        uses: actions/upload-artifact@v4
+        with:
+          name: biome-patched
+          path: biome
+          if-no-files-found: error
