@@ -1,4 +1,4 @@
-From a49fa4bc9b068205018dc796fafd1afc652bb54a Mon Sep 17 00:00:00 2001
+From 33688946e9a619435b9a988b0942aeff14bebb6f Mon Sep 17 00:00:00 2001
 From: John Paul R <jp@jpcode.dev>
 Date: Sat, 11 Apr 2026 15:25:53 -0400
 Subject: [PATCH] feat: add config option objectDestructuringLineBreaks
@@ -6,18 +6,18 @@ Subject: [PATCH] feat: add config option objectDestructuringLineBreaks
 https://github.com/biomejs/biome/discussions/2026
 ---
  .../biome_cli/src/execute/migrate/prettier.rs |  1 +
- .../src/javascript/formatter.rs               | 14 +++-
+ .../src/javascript/formatter.rs               | 17 ++++-
  crates/biome_js_formatter/src/context.rs      | 64 ++++++++++++++++++-
  .../src/utils/object_pattern_like.rs          | 19 +++++-
  .../src/file_handlers/javascript.rs           |  7 +-
  crates/biome_service/src/settings.rs          |  3 +
- 6 files changed, 101 insertions(+), 7 deletions(-)
+ 6 files changed, 104 insertions(+), 7 deletions(-)
 
 diff --git a/crates/biome_cli/src/execute/migrate/prettier.rs b/crates/biome_cli/src/execute/migrate/prettier.rs
-index e289338433..43d2c88bdf 100644
+index d62de81829..625c3d7dcc 100644
 --- a/crates/biome_cli/src/execute/migrate/prettier.rs
 +++ b/crates/biome_cli/src/execute/migrate/prettier.rs
-@@ -279,6 +279,7 @@ impl TryFrom<PrettierConfiguration> for biome_configuration::Configuration {
+@@ -281,6 +281,7 @@ impl TryFrom<PrettierConfiguration> for biome_configuration::Configuration {
              jsx_quote_style: Some(jsx_quote_style),
              attribute_position: Some(AttributePosition::default()),
              operator_linebreak: None,
@@ -26,11 +26,11 @@ index e289338433..43d2c88bdf 100644
          };
          let js_config = biome_configuration::JsConfiguration {
 diff --git a/crates/biome_configuration/src/javascript/formatter.rs b/crates/biome_configuration/src/javascript/formatter.rs
-index 1b5ce94eed..a494197228 100644
+index f27ace9066..89261399a0 100644
 --- a/crates/biome_configuration/src/javascript/formatter.rs
 +++ b/crates/biome_configuration/src/javascript/formatter.rs
 @@ -5,7 +5,7 @@ use biome_formatter::{
-     LineEnding, LineWidth, QuoteStyle, TrailingNewline,
+     IndentWidth, LineEnding, LineWidth, QuoteStyle, TrailingNewline,
  };
  use biome_js_formatter::context::{
 -    ArrowParentheses, OperatorLinebreak, QuoteProperties, Semicolons,
@@ -38,10 +38,10 @@ index 1b5ce94eed..a494197228 100644
      trailing_commas::TrailingCommas,
  };
  #[cfg(feature = "cli")]
-@@ -126,6 +126,17 @@ pub struct JsFormatterConfiguration {
+@@ -200,6 +200,17 @@ pub struct JsFormatterConfiguration {
      #[serde(skip_serializing_if = "Option::is_none")]
      pub operator_linebreak: Option<OperatorLinebreak>,
-
+ 
 +    /// Whether to preserve line breaks in object destructuring patterns. Defaults to "auto".
 +    #[cfg_attr(
 +        feature = "cli",
@@ -53,10 +53,10 @@ index 1b5ce94eed..a494197228 100644
 +    #[serde(skip_serializing_if = "Option::is_none")]
 +    pub object_destructuring_line_breaks: Option<ObjectDestructuringLineBreaks>,
 +
-     /// Whether to add a trailing newline at the end of the file.
-     ///
-     /// Setting this option to `false` is **highly discouraged** because it could cause many problems with other tools:
-@@ -181,4 +189,8 @@ impl JsFormatterConfiguration {
+     /// Whether to add a trailing newline at the end of the file. If unset, inherits the global
+     /// trailing newline setting.
+     #[cfg_attr(
+@@ -250,4 +261,8 @@ impl JsFormatterConfiguration {
      pub fn operator_linebreak_resolved(&self) -> OperatorLinebreak {
          self.operator_linebreak.unwrap_or_default()
      }
@@ -66,10 +66,10 @@ index 1b5ce94eed..a494197228 100644
 +    }
  }
 diff --git a/crates/biome_js_formatter/src/context.rs b/crates/biome_js_formatter/src/context.rs
-index 19763ea13d..fd1b1358e6 100644
+index db1acbc9a5..4f4dcb15d3 100644
 --- a/crates/biome_js_formatter/src/context.rs
 +++ b/crates/biome_js_formatter/src/context.rs
-@@ -194,6 +194,9 @@ pub struct JsFormatOptions {
+@@ -212,6 +212,9 @@ pub struct JsFormatOptions {
  
      /// Whether to add a trailing newline at the end of the file. Defaults to true.
      trailing_newline: TrailingNewline,
@@ -79,7 +79,7 @@ index 19763ea13d..fd1b1358e6 100644
  }
  
  impl JsFormatOptions {
-@@ -216,6 +219,7 @@ impl JsFormatOptions {
+@@ -235,6 +238,7 @@ impl JsFormatOptions {
              expand: Expand::default(),
              operator_linebreak: OperatorLinebreak::default(),
              trailing_newline: TrailingNewline::default(),
@@ -87,7 +87,7 @@ index 19763ea13d..fd1b1358e6 100644
          }
      }
  
-@@ -299,6 +303,11 @@ impl JsFormatOptions {
+@@ -323,6 +327,11 @@ impl JsFormatOptions {
          self
      }
  
@@ -99,7 +99,7 @@ index 19763ea13d..fd1b1358e6 100644
      pub fn set_arrow_parentheses(&mut self, arrow_parentheses: ArrowParentheses) {
          self.arrow_parentheses = arrow_parentheses;
      }
-@@ -363,6 +372,10 @@ impl JsFormatOptions {
+@@ -391,6 +400,10 @@ impl JsFormatOptions {
          self.trailing_newline = trailing_newline;
      }
  
@@ -110,7 +110,7 @@ index 19763ea13d..fd1b1358e6 100644
      pub fn arrow_parentheses(&self) -> ArrowParentheses {
          self.arrow_parentheses
      }
-@@ -418,6 +431,10 @@ impl JsFormatOptions {
+@@ -450,6 +463,10 @@ impl JsFormatOptions {
      pub fn trailing_newline(&self) -> TrailingNewline {
          self.trailing_newline
      }
@@ -121,7 +121,7 @@ index 19763ea13d..fd1b1358e6 100644
  }
  
  impl FormatOptions for JsFormatOptions {
-@@ -463,7 +480,8 @@ impl fmt::Display for JsFormatOptions {
+@@ -496,7 +513,8 @@ impl fmt::Display for JsFormatOptions {
          writeln!(f, "Attribute Position: {}", self.attribute_position)?;
          writeln!(f, "Expand lists: {}", self.expand)?;
          writeln!(f, "Operator linebreak: {}", self.operator_linebreak)?;
@@ -131,7 +131,7 @@ index 19763ea13d..fd1b1358e6 100644
      }
  }
  
-@@ -642,3 +660,47 @@ impl fmt::Display for OperatorLinebreak {
+@@ -675,3 +693,47 @@ impl fmt::Display for OperatorLinebreak {
          }
      }
  }
@@ -236,10 +236,10 @@ index e4b90c9074..b6164043f1 100644
                  write!(
                      f,
 diff --git a/crates/biome_service/src/file_handlers/javascript.rs b/crates/biome_service/src/file_handlers/javascript.rs
-index 800ea31343..5302fff3b3 100644
+index 1ca46f1fd0..612f853210 100644
 --- a/crates/biome_service/src/file_handlers/javascript.rs
 +++ b/crates/biome_service/src/file_handlers/javascript.rs
-@@ -52,7 +52,7 @@ use biome_js_analyze::{
+@@ -64,7 +64,7 @@ use biome_js_analyze::{
  use biome_js_factory::make::ident;
  use biome_js_formatter::context::trailing_commas::TrailingCommas;
  use biome_js_formatter::context::{
@@ -248,7 +248,7 @@ index 800ea31343..5302fff3b3 100644
  };
  use biome_js_formatter::format_node;
  use biome_js_parser::JsParserOptions;
-@@ -97,6 +97,7 @@ pub struct JsFormatterSettings {
+@@ -136,6 +136,7 @@ pub struct JsFormatterSettings {
      pub attribute_position: Option<AttributePosition>,
      pub expand: Option<Expand>,
      pub operator_linebreak: Option<OperatorLinebreak>,
@@ -256,7 +256,7 @@ index 800ea31343..5302fff3b3 100644
      pub trailing_newline: Option<TrailingNewline>,
  }
  
-@@ -119,6 +120,7 @@ impl From<JsFormatterConfiguration> for JsFormatterSettings {
+@@ -159,6 +160,7 @@ impl From<JsFormatterConfiguration> for JsFormatterSettings {
              line_ending: value.line_ending,
              expand: value.expand,
              operator_linebreak: value.operator_linebreak,
@@ -264,7 +264,7 @@ index 800ea31343..5302fff3b3 100644
              trailing_newline: value.trailing_newline,
          }
      }
-@@ -293,7 +295,8 @@ impl ServiceLanguage for JsLanguage {
+@@ -362,7 +364,8 @@ impl ServiceLanguage for JsLanguage {
                  .or(global.trailing_newline)
                  .unwrap_or_default(),
          )
@@ -275,10 +275,10 @@ index 800ea31343..5302fff3b3 100644
          overrides.override_js_format_options(path, options)
      }
 diff --git a/crates/biome_service/src/settings.rs b/crates/biome_service/src/settings.rs
-index 8e97d88401..5089eb3670 100644
+index 6dc120a459..a952ffbb0c 100644
 --- a/crates/biome_service/src/settings.rs
 +++ b/crates/biome_service/src/settings.rs
-@@ -1665,6 +1665,9 @@ impl OverrideSettingPattern {
+@@ -1882,6 +1882,9 @@ impl OverrideSettingPattern {
          if let Some(operator_line_break) = js_formatter.operator_linebreak {
              options.set_operator_linebreak(operator_line_break);
          }
@@ -289,5 +289,5 @@ index 8e97d88401..5089eb3670 100644
          {
              options.set_trailing_newline(trailing_newline);
 -- 
-2.53.0
+2.55.0
 
