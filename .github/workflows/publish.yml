@@ -94,6 +94,15 @@ jobs:
         shell: bash
         run: ./build.sh
 
+      - name: Add swap (Linux ARM)
+        if: runner.os == 'Linux' && contains(matrix.runner, 'arm')
+        shell: bash
+        run: |
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+
       - name: Set jemalloc page size (linux-arm64)
         if: matrix.code-target == 'linux-arm64'
         shell: bash
