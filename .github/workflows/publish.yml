@@ -98,6 +98,7 @@ jobs:
         if: runner.os == 'Linux' && contains(matrix.runner, 'arm')
         shell: bash
         run: |
+          sudo swapoff /swapfile || true
           sudo fallocate -l 8G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
@@ -107,6 +108,11 @@ jobs:
         if: matrix.code-target == 'linux-arm64'
         shell: bash
         run: echo "JEMALLOC_SYS_WITH_LG_PAGE=16" >> $GITHUB_ENV
+
+      - name: Limit build parallelism (ARM)
+        if: contains(matrix.runner, 'arm')
+        shell: bash
+        run: echo "CARGO_BUILD_JOBS=1" >> $GITHUB_ENV
 
       - name: Build biome CLI
         shell: bash
