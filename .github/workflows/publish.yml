@@ -68,8 +68,12 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       BIOME_VERSION: ${{ needs.version.outputs.version }}
-      RUSTFLAGS: "-C strip=symbols -C codegen-units=1"
+      RUSTFLAGS: "-C strip=symbols -C codegen-units=2"
     steps:
+      - name: Enable long paths (Windows)
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+
       - uses: actions/checkout@v6
         with:
           submodules: true
