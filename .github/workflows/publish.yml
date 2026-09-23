@@ -45,12 +45,14 @@ jobs:
           - code-target: linux-arm64
             runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
+            lowmem: true
           - code-target: linux-x64-musl
             runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
           - code-target: linux-arm64-musl
             runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
+            lowmem: true
           - code-target: darwin-x64
             runner: macos-latest
             target: x86_64-apple-darwin
@@ -65,10 +67,11 @@ jobs:
             runner: windows-latest
             target: aarch64-pc-windows-msvc
             ext: .exe
+            lowmem: true
     runs-on: ${{ matrix.runner }}
     env:
       BIOME_VERSION: ${{ needs.version.outputs.version }}
-      RUSTFLAGS: "-C strip=symbols -C codegen-units=2"
+      RUSTFLAGS: "-C strip=symbols"
     steps:
       - name: Enable long paths (Windows)
         if: runner.os == 'Windows'
@@ -94,8 +97,8 @@ jobs:
         shell: bash
         run: ./build.sh
 
-      - name: Add swap (Linux ARM)
-        if: runner.os == 'Linux' && contains(matrix.runner, 'arm')
+      - name: Add swap (Linux, low-memory targets)
+        if: runner.os == 'Linux' && matrix.lowmem
         shell: bash
         run: |
           sudo swapoff /swapfile || true
@@ -104,15 +107,25 @@ jobs:
           sudo mkswap /swapfile
           sudo swapon /swapfile
 
+      - name: Enlarge pagefile (Windows, low-memory targets)
+        if: runner.os == 'Windows' && matrix.lowmem
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 16GB
+          maximum-size: 16GB
+
       - name: Set jemalloc page size (linux-arm64)
         if: matrix.code-target == 'linux-arm64'
         shell: bash
         run: echo "JEMALLOC_SYS_WITH_LG_PAGE=16" >> $GITHUB_ENV
 
-      - name: Limit build parallelism (ARM)
-        if: contains(matrix.runner, 'arm')
+      - name: Reduce build memory (low-memory targets)
+        if: matrix.lowmem
         shell: bash
-        run: echo "CARGO_BUILD_JOBS=1" >> $GITHUB_ENV
+        run: |
+          echo "CARGO_PROFILE_RELEASE_LTO=thin" >> "$GITHUB_ENV"
+          echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
+          echo "CARGO_BUILD_JOBS=1" >> "$GITHUB_ENV"
 
       - name: Build biome CLI
         shell: bash
