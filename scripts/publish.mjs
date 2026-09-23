@@ -77,8 +77,7 @@ function rewriteScopeInTree(dir) {
             continue;
         }
         const ext = path.extname(entry.name).toLowerCase();
-        const isTextLike = textExtensions.has(ext) || ext === "";
-        if (!isTextLike) continue;
+        if (!textExtensions.has(ext)) continue;
         const buf = fs.readFileSync(full);
         if (!buf.includes(oldScope)) continue;
         const rewritten = buf.toString("utf8").replaceAll(oldScope, newScope);
