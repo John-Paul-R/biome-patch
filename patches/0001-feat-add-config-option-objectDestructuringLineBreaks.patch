@@ -5,12 +5,12 @@ Subject: [PATCH] feat: add config option objectDestructuringLineBreaks
 
 https://github.com/biomejs/biome/discussions/2026
 ---
- .../biome_cli/src/execute/migrate/prettier.rs |  1 +
- .../src/javascript/formatter.rs               | 17 ++++-
- crates/biome_js_formatter/src/context.rs      | 64 ++++++++++++++++++-
- .../src/utils/object_pattern_like.rs          | 19 +++++-
- .../src/file_handlers/javascript.rs           |  7 +-
- crates/biome_service/src/settings.rs          |  3 +
+ crates/biome_cli/src/execute/migrate/prettier.rs   |  1 +
+ .../src/javascript/formatter.rs                    | 17 +++++-
+ crates/biome_js_formatter/src/context.rs           | 64 +++++++++++++++++++++-
+ .../src/utils/object_pattern_like.rs               | 19 ++++++-
+ .../biome_service/src/file_handlers/javascript.rs  |  7 ++-
+ crates/biome_service/src/settings.rs               |  3 +
  6 files changed, 104 insertions(+), 7 deletions(-)
 
 diff --git a/crates/biome_cli/src/execute/migrate/prettier.rs b/crates/biome_cli/src/execute/migrate/prettier.rs
@@ -66,7 +66,7 @@ index f27ace9066..89261399a0 100644
 +    }
  }
 diff --git a/crates/biome_js_formatter/src/context.rs b/crates/biome_js_formatter/src/context.rs
-index db1acbc9a5..4f4dcb15d3 100644
+index ae6dcd22d1..d1a8afbcf1 100644
 --- a/crates/biome_js_formatter/src/context.rs
 +++ b/crates/biome_js_formatter/src/context.rs
 @@ -212,6 +212,9 @@ pub struct JsFormatOptions {
@@ -236,10 +236,10 @@ index e4b90c9074..b6164043f1 100644
                  write!(
                      f,
 diff --git a/crates/biome_service/src/file_handlers/javascript.rs b/crates/biome_service/src/file_handlers/javascript.rs
-index 1ca46f1fd0..612f853210 100644
+index 8e4edc9c44..1380e44bd5 100644
 --- a/crates/biome_service/src/file_handlers/javascript.rs
 +++ b/crates/biome_service/src/file_handlers/javascript.rs
-@@ -64,7 +64,7 @@ use biome_js_analyze::{
+@@ -70,7 +70,7 @@ use biome_js_control_flow::js_control_flow_model;
  use biome_js_factory::make::ident;
  use biome_js_formatter::context::trailing_commas::TrailingCommas;
  use biome_js_formatter::context::{
@@ -248,7 +248,7 @@ index 1ca46f1fd0..612f853210 100644
  };
  use biome_js_formatter::format_node;
  use biome_js_parser::JsParserOptions;
-@@ -136,6 +136,7 @@ pub struct JsFormatterSettings {
+@@ -140,6 +140,7 @@ pub struct JsFormatterSettings {
      pub attribute_position: Option<AttributePosition>,
      pub expand: Option<Expand>,
      pub operator_linebreak: Option<OperatorLinebreak>,
@@ -256,7 +256,7 @@ index 1ca46f1fd0..612f853210 100644
      pub trailing_newline: Option<TrailingNewline>,
  }
  
-@@ -159,6 +160,7 @@ impl From<JsFormatterConfiguration> for JsFormatterSettings {
+@@ -163,6 +164,7 @@ impl From<JsFormatterConfiguration> for JsFormatterSettings {
              line_ending: value.line_ending,
              expand: value.expand,
              operator_linebreak: value.operator_linebreak,
@@ -265,20 +265,20 @@ index 1ca46f1fd0..612f853210 100644
          }
      }
 @@ -362,7 +364,8 @@ impl ServiceLanguage for JsLanguage {
-                 .or(global.trailing_newline)
-                 .unwrap_or_default(),
-         )
--        .with_operator_linebreak(language.operator_linebreak.unwrap_or_default());
-+        .with_operator_linebreak(language.operator_linebreak.unwrap_or_default())
+                     .or(global.trailing_newline)
+                     .unwrap_or_default(),
+             )
+-            .with_operator_linebreak(language.operator_linebreak.unwrap_or_default());
++            .with_operator_linebreak(language.operator_linebreak.unwrap_or_default())
 +        .with_object_destructuring_line_breaks(language.object_destructuring_line_breaks.unwrap_or_default());
  
-         overrides.override_js_format_options(path, options)
+         overrides.override_js_format_options_by_indices(override_indices, options)
      }
 diff --git a/crates/biome_service/src/settings.rs b/crates/biome_service/src/settings.rs
-index 6dc120a459..a952ffbb0c 100644
+index a1423a4643..ec7df6f51e 100644
 --- a/crates/biome_service/src/settings.rs
 +++ b/crates/biome_service/src/settings.rs
-@@ -1882,6 +1882,9 @@ impl OverrideSettingPattern {
+@@ -1980,6 +1980,9 @@ impl OverrideSettingPattern {
          if let Some(operator_line_break) = js_formatter.operator_linebreak {
              options.set_operator_linebreak(operator_line_break);
          }
