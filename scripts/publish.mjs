@@ -9,6 +9,8 @@ const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
 const registry = "https://npm.pkg.github.com";
 const oldScope = "@biomejs/";
 const newScope = `@${scope}/`;
+const oldScopeBytes = Buffer.from(oldScope);
+const newScopeBytes = Buffer.from(newScope);
 
 const biomeDir = path.resolve("biome");
 const pkgRoot = path.join(biomeDir, "packages/@biomejs");
@@ -41,11 +43,11 @@ execSync("node packages/@biomejs/biome/scripts/generate-packages.mjs", {
     stdio: "inherit",
 });
 
-// Rewrite every text file in the published dirs: swap @biomejs/ for @<scope>/,
-// repoint `repository`, drop provenance (requires npmjs.org), and pin the
-// registry via publishConfig.
+// Rewrite files in the published dirs: swap @biomejs/ for @<scope>/ at the byte
+// level (no text decoding, so binaries pass through safely), repoint
+// `repository`, drop provenance (requires npmjs.org), and pin the registry via
+// publishConfig.
 const repoUrl = `${serverUrl}/${repoSlug}`;
-const textExtensions = new Set([".js", ".mjs", ".cjs", ".json", ".ts", ".md"]);
 
 for (const dir of publishDirs) {
     const pkgDir = path.join(pkgRoot, dir);
@@ -76,14 +78,26 @@ function rewriteScopeInTree(dir) {
             rewriteScopeInTree(full);
             continue;
         }
-        const ext = path.extname(entry.name).toLowerCase();
-        if (!textExtensions.has(ext)) continue;
         const buf = fs.readFileSync(full);
-        if (!buf.includes(oldScope)) continue;
-        const rewritten = buf.toString("utf8").replaceAll(oldScope, newScope);
+        const rewritten = bufferReplaceAll(buf, oldScopeBytes, newScopeBytes);
+        if (rewritten === buf) continue;
         fs.writeFileSync(full, rewritten);
         console.info(`  rewrote ${path.relative(biomeDir, full)}`);
     }
+}
+
+function bufferReplaceAll(buf, needle, replacement) {
+    let idx = buf.indexOf(needle);
+    if (idx === -1) return buf;
+    const chunks = [];
+    let start = 0;
+    while (idx !== -1) {
+        chunks.push(buf.subarray(start, idx), replacement);
+        start = idx + needle.length;
+        idx = buf.indexOf(needle, start);
+    }
+    chunks.push(buf.subarray(start));
+    return Buffer.concat(chunks);
 }
 
 function readJson(p) {
